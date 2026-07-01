@@ -13,13 +13,14 @@ Licensed under [AGPL-3.0](LICENSE). Free to use and modify; if you run this as a
 | [gitleaks](actions/gitleaks/) | [Gitleaks](https://github.com/gitleaks/gitleaks) | Secret scanning |
 | [semgrep](actions/semgrep/) | [Semgrep OSS](https://semgrep.dev) | SAST / code analysis |
 | [syft](actions/syft/) | [Syft](https://github.com/anchore/syft) | SBOM generation + license compliance |
+| [grype](actions/grype/) | [Grype](https://github.com/anchore/grype) | CVE / vulnerability scanning |
 
 ## Design
 
 - **No platform lock-in.** No calls to proprietary security APIs. Results land as workflow artifacts (SARIF, SPDX JSON, CycloneDX JSON) that any SARIF-aware consumer can read.
 - **Composite actions.** No Docker images — tools are installed at runtime from their upstream release channels. Fast, auditable, version-pinnable.
 - **Observe before you gate.** Every action has `fail_on_findings: false` for a non-blocking audit pass while onboarding.
-- **SARIF output.** gitleaks and semgrep produce SARIF. syft produces SBOM. Upload as artifacts or push to a dashboard like DefectDojo.
+- **SARIF output.** gitleaks, semgrep, and grype produce SARIF. syft produces SBOM (feed it to grype for accurate CVE results).
 
 ## Quick start
 
@@ -72,6 +73,25 @@ jobs:
         with:
           name: sbom
           path: sbom.spdx.json
+
+  vuln:
+    runs-on: ubuntu-latest
+    needs: sbom
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbom
+      - uses: cschooley/sec-actions/actions/grype@main
+        with:
+          target: sbom.spdx.json
+          severity_cutoff: 'medium'
+          fail_on_findings: 'false'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: grype-sarif
+          path: grype.sarif
 ```
 
 See [examples/](examples/) for a complete workflow template, VS Code integration, a SARIF download script, and a post-merge git hook.
