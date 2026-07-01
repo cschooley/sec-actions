@@ -1,0 +1,74 @@
+name: 'Grype Vulnerability Scanner'
+description: 'Scan for CVEs using Grype and emit a SARIF report. Accepts a directory, container image, or Syft SBOM as input.'
+author: 'cschooley'
+
+inputs:
+  target:
+    description: 'What to scan: a directory (dir:.), container image (name:tag), or path to a Syft SBOM file'
+    required: false
+    default: 'dir:.'
+  output_file:
+    description: 'Path to write SARIF output'
+    required: false
+    default: 'grype.sarif'
+  severity_cutoff:
+    description: 'Minimum severity to report: negligible, low, medium, high, critical'
+    required: false
+    default: 'medium'
+  fail_on_findings:
+    description: 'Exit 1 if vulnerabilities at or above severity_cutoff are found. Set to false for audit mode.'
+    required: false
+    default: 'true'
+  version:
+    description: 'Grype version to install (e.g. 0.88.0). Defaults to latest.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Grype
+      shell: bash
+      env:
+        GRYPE_VERSION: ${{ inputs.version }}
+      run: |
+        if command -v grype &>/dev/null; then
+          echo "grype already installed: $(grype version | head -1)"
+          exit 0
+        fi
+
+        if [ -z "$GRYPE_VERSION" ]; then
+          GRYPE_VERSION=$(curl -sfL "https://api.github.com/repos/anchore/grype/releases/latest" \
+            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+        fi
+
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
+          | sh -s -- -b /usr/local/bin "v${GRYPE_VERSION}"
+        echo "Installed grype $(grype version | head -1)"
+
+    - name: Run Grype scan
+      shell: bash
+      env:
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_OUTPUT: ${{ inputs.output_file }}
+        INPUT_SEVERITY: ${{ inputs.severity_cutoff }}
+        INPUT_FAIL: ${{ inputs.fail_on_findings }}
+      run: |
+        grype "$INPUT_TARGET" \
+          --output sarif \
+          --file "$INPUT_OUTPUT" \
+          --fail-on "$INPUT_SEVERITY" \
+          --quiet
+        EXIT=$?
+
+        if [ $EXIT -eq 0 ]; then
+          echo "No vulnerabilities found at or above $INPUT_SEVERITY severity."
+        elif [ $EXIT -eq 1 ]; then
+          echo "::warning::Grype found vulnerabilities at or above $INPUT_SEVERITY severity. Review $INPUT_OUTPUT."
+          if [ "$INPUT_FAIL" = "true" ]; then
+            exit 1
+          fi
+        else
+          echo "::error::Grype exited with unexpected code $EXIT." >&2
+          exit $EXIT
+        fi
