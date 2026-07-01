@@ -76,6 +76,24 @@ jobs:
 
 See [examples/](examples/) for a complete workflow template, VS Code integration, a SARIF download script, and a post-merge git hook.
 
+## VS Code integration (non-GHAS repos)
+
+GitHub Code Scanning requires GHAS (paid feature for private repos). For private repos without GHAS, you can still get inline findings in VS Code:
+
+1. Copy [examples/scripts/fetch-sarif.sh](examples/scripts/fetch-sarif.sh) into your repo's `scripts/` directory
+2. Copy [examples/githooks/post-merge](examples/githooks/post-merge) into `.githooks/`
+3. Copy [examples/vscode/](examples/vscode/) into `.vscode/`
+4. Add `.sarif/` to your `.gitignore`
+5. **One-time per working copy:** enable the local hook:
+   ```bash
+   git config core.hooksPath .githooks
+   ```
+6. Install the [SARIF Viewer](https://marketplace.visualstudio.com/items?itemName=MS-SarifVSCode.sarif-viewer) extension (recommended in `.vscode/extensions.json`)
+
+After setup, `git pull` automatically fetches the latest scan artifacts into `.sarif/` and the SARIF Viewer shows findings inline in the Problems panel (`Ctrl+Shift+M`). Run manually anytime with `bash scripts/fetch-sarif.sh`.
+
+> **Note:** `git config core.hooksPath` is a local setting — it must be run once in each working copy (clone or worktree). It does not travel with the repo.
+
 ## Roadmap
 
 - OSV-Scanner action (dependency/SCA scanning)
