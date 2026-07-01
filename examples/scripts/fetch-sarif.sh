@@ -13,7 +13,7 @@ REPO="${SARIF_REPO:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
 WORKFLOW="${SARIF_WORKFLOW:-security.yml}"
 OUT_DIR="${SARIF_OUT_DIR:-.sarif}"
 
-mkdir -p "$OUT_DIR"
+rm -rf "$OUT_DIR" && mkdir -p "$OUT_DIR"
 
 RUN_ID=$(gh run list \
   --repo "$REPO" \
