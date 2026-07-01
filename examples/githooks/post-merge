@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Auto-fetch latest security scan SARIF results after git pull.
+# Enable via: git config core.hooksPath .githooks
+bash "$(git rev-parse --show-toplevel)/scripts/fetch-sarif.sh" || true
