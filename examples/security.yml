@@ -1,0 +1,53 @@
+name: Security
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  secrets:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for gitleaks
+      - uses: cschooley/sec-actions/actions/gitleaks@main
+        with:
+          fail_on_findings: "false"  # audit mode — tighten after baseline triage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+
+  sast:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cschooley/sec-actions/actions/semgrep@main
+        with:
+          config: "auto"  # auto-detects language rulesets
+          fail_on_findings: "false"  # audit mode
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+
+  sbom:
+    name: SBOM + License Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cschooley/sec-actions/actions/syft@main
+        with:
+          target: "dir:."
+          fail_on_findings: "false"  # audit mode
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom
+          path: sbom.spdx.json
