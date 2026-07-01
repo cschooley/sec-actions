@@ -1,0 +1,80 @@
+name: Test Actions
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-gitleaks:
+    name: Test gitleaks action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run gitleaks scanner
+        uses: ./actions/gitleaks
+        with:
+          source: '.'
+          output_file: gitleaks.sarif
+          fail_on_findings: 'true'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+
+  test-semgrep:
+    name: Test semgrep action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run semgrep scanner
+        uses: ./actions/semgrep
+        with:
+          config: 'auto'
+          target: '.'
+          output_file: semgrep.sarif
+          fail_on_findings: 'false'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+
+  test-syft:
+    name: Test syft action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SBOM
+        uses: ./actions/syft
+        with:
+          target: 'dir:.'
+          output_format: spdx-json
+          output_file: sbom.spdx.json
+          check_licenses: 'true'
+          deny_licenses: 'GPL-2.0-only,GPL-3.0-only,AGPL-3.0-only'
+          fail_on_findings: 'false'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+  test-license-check:
+    name: Test license_check.py unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run tests
+        run: python3 -m pytest tests/ -v

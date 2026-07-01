@@ -1,0 +1,82 @@
+name: 'Syft SBOM Generator'
+description: 'Generate an SBOM with Syft and optionally enforce a license policy'
+author: 'cschooley'
+
+inputs:
+  target:
+    description: 'What to scan: a directory (dir:.), container image (name:tag), or OCI archive'
+    required: false
+    default: 'dir:.'
+  output_format:
+    description: 'SBOM format: spdx-json, cyclonedx-json, or syft-json'
+    required: false
+    default: 'spdx-json'
+  output_file:
+    description: 'Path to write the SBOM'
+    required: false
+    default: 'sbom.spdx.json'
+  check_licenses:
+    description: 'Run license compliance check against allow/deny lists'
+    required: false
+    default: 'false'
+  allow_licenses:
+    description: 'Comma-separated SPDX license IDs that are allowed. If set, anything not on the list fails.'
+    required: false
+    default: ''
+  deny_licenses:
+    description: 'Comma-separated SPDX license IDs that are never allowed.'
+    required: false
+    default: ''
+  fail_on_findings:
+    description: 'Exit 1 if license violations are found. Set to false for audit mode.'
+    required: false
+    default: 'true'
+  version:
+    description: 'Syft version to install (e.g. 1.21.0). Defaults to latest.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Syft
+      shell: bash
+      env:
+        SYFT_VERSION: ${{ inputs.version }}
+      run: |
+        if command -v syft &>/dev/null; then
+          echo "syft already installed: $(syft version | head -1)"
+          exit 0
+        fi
+
+        if [ -z "$SYFT_VERSION" ]; then
+          SYFT_VERSION=$(curl -sfL "https://api.github.com/repos/anchore/syft/releases/latest" \
+            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+        fi
+
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+          | sh -s -- -b /usr/local/bin "v${SYFT_VERSION}"
+        echo "Installed syft $(syft version | head -1)"
+
+    - name: Generate SBOM
+      shell: bash
+      env:
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_FORMAT: ${{ inputs.output_format }}
+        INPUT_OUTPUT: ${{ inputs.output_file }}
+      run: |
+        syft "$INPUT_TARGET" \
+          --output "$INPUT_FORMAT=$INPUT_OUTPUT" \
+          --quiet
+        echo "SBOM written to $INPUT_OUTPUT"
+
+    - name: Check license compliance
+      if: inputs.check_licenses == 'true'
+      shell: bash
+      run: python ${{ github.action_path }}/src/license_check.py
+      env:
+        INPUT_SBOM_FILE: ${{ inputs.output_file }}
+        INPUT_SBOM_FORMAT: ${{ inputs.output_format }}
+        INPUT_ALLOW_LICENSES: ${{ inputs.allow_licenses }}
+        INPUT_DENY_LICENSES: ${{ inputs.deny_licenses }}
+        INPUT_FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}

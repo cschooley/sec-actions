@@ -1,0 +1,46 @@
+name: 'Semgrep SAST Scanner'
+description: 'Static analysis with Semgrep — outputs SARIF for any SARIF-aware consumer'
+author: 'cschooley'
+
+inputs:
+  config:
+    description: 'Semgrep ruleset: "auto", a registry pack (p/security-audit), or a path to local rules'
+    required: false
+    default: 'auto'
+  target:
+    description: 'Directory or file to scan'
+    required: false
+    default: '.'
+  output_file:
+    description: 'Path to write SARIF output'
+    required: false
+    default: 'semgrep.sarif'
+  fail_on_findings:
+    description: 'Exit 1 if findings are reported. Set to false for audit mode.'
+    required: false
+    default: 'true'
+  extra_args:
+    description: 'Additional CLI arguments passed directly to semgrep (e.g. --exclude tests/)'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Semgrep
+      shell: bash
+      run: |
+        if ! command -v semgrep &>/dev/null; then
+          pip install semgrep --quiet
+        fi
+        echo "semgrep $(semgrep --version)"
+
+    - name: Run Semgrep scan
+      shell: bash
+      run: python ${{ github.action_path }}/src/scan.py
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_OUTPUT_FILE: ${{ inputs.output_file }}
+        INPUT_FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
+        INPUT_EXTRA_ARGS: ${{ inputs.extra_args }}

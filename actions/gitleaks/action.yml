@@ -1,0 +1,96 @@
+name: 'Gitleaks Secret Scanner'
+description: 'Scan for hardcoded secrets using Gitleaks and emit a SARIF report'
+author: 'cschooley'
+
+inputs:
+  source:
+    description: 'Directory to scan'
+    required: false
+    default: '.'
+  config:
+    description: 'Path to a .gitleaks.toml config file'
+    required: false
+    default: ''
+  baseline_path:
+    description: 'Path to a gitleaks baseline file to suppress known findings'
+    required: false
+    default: ''
+  output_file:
+    description: 'Path to write SARIF output'
+    required: false
+    default: 'gitleaks.sarif'
+  fail_on_findings:
+    description: 'Exit 1 if secrets are found. Set to false for observe/audit mode.'
+    required: false
+    default: 'true'
+  version:
+    description: 'Gitleaks version to install (e.g. 8.27.2). Defaults to latest.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Gitleaks
+      shell: bash
+      env:
+        GL_VERSION: ${{ inputs.version }}
+      run: |
+        if command -v gitleaks &>/dev/null; then
+          echo "gitleaks already installed: $(gitleaks version)"
+          exit 0
+        fi
+
+        if [ -z "$GL_VERSION" ]; then
+          GL_VERSION=$(curl -sfL "https://api.github.com/repos/gitleaks/gitleaks/releases/latest" \
+            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+        fi
+
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)  ARCH_SLUG="x64" ;;
+          aarch64) ARCH_SLUG="arm64" ;;
+          *)        echo "ERROR: unsupported arch $ARCH" >&2; exit 1 ;;
+        esac
+
+        TARBALL="gitleaks_${GL_VERSION}_linux_${ARCH_SLUG}.tar.gz"
+        curl -sfL "https://github.com/gitleaks/gitleaks/releases/download/v${GL_VERSION}/${TARBALL}" \
+          | tar -xz -C /usr/local/bin gitleaks
+        chmod +x /usr/local/bin/gitleaks
+        echo "Installed gitleaks $(gitleaks version)"
+
+    - name: Run Gitleaks scan
+      shell: bash
+      env:
+        INPUT_SOURCE: ${{ inputs.source }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_BASELINE: ${{ inputs.baseline_path }}
+        INPUT_OUTPUT: ${{ inputs.output_file }}
+        INPUT_FAIL: ${{ inputs.fail_on_findings }}
+      run: |
+        cmd=(gitleaks detect
+          --source "$INPUT_SOURCE"
+          --report-format sarif
+          --report-path "$INPUT_OUTPUT"
+          --exit-code 1
+          --redact
+          --no-banner
+        )
+
+        [ -n "$INPUT_CONFIG" ]   && cmd+=(--config "$INPUT_CONFIG")
+        [ -n "$INPUT_BASELINE" ] && cmd+=(--baseline-path "$INPUT_BASELINE")
+
+        "${cmd[@]}"
+        EXIT=$?
+
+        if [ $EXIT -eq 0 ]; then
+          echo "No secrets found."
+        elif [ $EXIT -eq 1 ]; then
+          echo "::warning::Gitleaks found potential secrets. Review $INPUT_OUTPUT."
+          if [ "$INPUT_FAIL" = "true" ]; then
+            exit 1
+          fi
+        else
+          echo "::error::Gitleaks exited with unexpected code $EXIT." >&2
+          exit $EXIT
+        fi
