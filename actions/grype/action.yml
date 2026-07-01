@@ -31,15 +31,21 @@ runs:
       shell: bash
       env:
         GRYPE_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         if command -v grype &>/dev/null; then
           echo "grype already installed: $(grype version | head -1)"
           exit 0
         fi
 
+        # Use gh CLI (authenticated, no rate-limit risk) to resolve latest version
         if [ -z "$GRYPE_VERSION" ]; then
-          GRYPE_VERSION=$(curl -sfL "https://api.github.com/repos/anchore/grype/releases/latest" \
-            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+          GRYPE_VERSION=$(gh release view --repo anchore/grype --json tagName --jq '.tagName' | sed 's/^v//')
+        fi
+
+        if [ -z "$GRYPE_VERSION" ]; then
+          echo "::error::Could not determine Grype version. Set the 'version' input explicitly." >&2
+          exit 1
         fi
 
         curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
@@ -55,8 +61,8 @@ runs:
         INPUT_FAIL: ${{ inputs.fail_on_findings }}
       run: |
         # Disable set -e so we can capture grype's exit code ourselves.
-        # GitHub Actions runs bash with -e by default; grype exits 1 on findings
-        # and 2 on errors — both would abort the script before EXIT=$? is reached.
+        # GitHub Actions runs bash with -e -o pipefail by default; grype exits 1
+        # on findings and 2 on errors — both abort the script before EXIT=$? runs.
         set +e
         grype "$INPUT_TARGET" \
           --output sarif \
