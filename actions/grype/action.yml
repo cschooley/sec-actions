@@ -61,8 +61,8 @@ runs:
         INPUT_FAIL: ${{ inputs.fail_on_findings }}
       run: |
         # Disable set -e so we can capture grype's exit code ourselves.
-        # GitHub Actions runs bash with -e -o pipefail by default; grype exits 1
-        # on findings and 2 on errors — both abort the script before EXIT=$? runs.
+        # GitHub Actions runs bash with -e -o pipefail by default.
+        # Grype exit codes: 0 = clean, 1 = application error, 2 = findings above threshold.
         set +e
         grype "$INPUT_TARGET" \
           --output sarif \
@@ -73,7 +73,7 @@ runs:
 
         if [ $EXIT -eq 0 ]; then
           echo "No vulnerabilities found at or above $INPUT_SEVERITY severity."
-        elif [ $EXIT -eq 1 ]; then
+        elif [ $EXIT -eq 2 ]; then
           echo "::warning::Grype found vulnerabilities at or above $INPUT_SEVERITY severity. Review $INPUT_OUTPUT."
           if [ "$INPUT_FAIL" = "true" ]; then
             exit 1
