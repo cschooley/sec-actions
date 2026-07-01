@@ -35,4 +35,7 @@ gh run download "$RUN_ID" --repo "$REPO" --name gitleaks-sarif --dir "$OUT_DIR" 
 gh run download "$RUN_ID" --repo "$REPO" --name semgrep-sarif  --dir "$OUT_DIR" 2>/dev/null && \
   echo "  ✓ semgrep"  || echo "  – semgrep artifact not available"
 
+gh run download "$RUN_ID" --repo "$REPO" --name grype-sarif    --dir "$OUT_DIR" 2>/dev/null && \
+  echo "  ✓ grype"    || echo "  – grype artifact not available"
+
 echo "fetch-sarif: done. Open VS Code Problems panel to see findings."
