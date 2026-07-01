@@ -90,7 +90,7 @@ GitHub Code Scanning requires GHAS (paid feature for private repos). For private
    ```
 6. Install the [SARIF Viewer](https://marketplace.visualstudio.com/items?itemName=MS-SarifVSCode.sarif-viewer) extension (recommended in `.vscode/extensions.json`)
 
-After setup, `git pull` automatically fetches the latest scan artifacts into `.sarif/` and the SARIF Viewer shows findings inline in the Problems panel (`Ctrl+Shift+M`). Run manually anytime with `bash scripts/fetch-sarif.sh`.
+After setup, `git pull` automatically fetches the latest scan artifacts into `.sarif/` and the SARIF Viewer shows findings inline in the Problems panel (`Ctrl+Shift+M`). Run manually anytime with `bash scripts/fetch-sarif.sh` — also use this if `git pull` reports "Already up to date" (the hook only fires when commits are merged).
 
 > **Note:** `git config core.hooksPath` is a local setting — it must be run once in each working copy (clone or worktree). It does not travel with the repo.
 
