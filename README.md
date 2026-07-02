@@ -109,10 +109,58 @@ GitHub Code Scanning requires GHAS (paid feature for private repos). For private
    git config core.hooksPath .githooks
    ```
 6. Install the [SARIF Viewer](https://marketplace.visualstudio.com/items?itemName=MS-SarifVSCode.sarif-viewer) extension (recommended in `.vscode/extensions.json`)
+7. Add this to your `.vscode/settings.json` so the extension auto-loads findings on startup:
+   ```json
+   {
+     "sarif-viewer.rootpaths": [".sarif"]
+   }
+   ```
+   > `.vscode/settings.json` should be gitignored so this stays local to each developer's machine.
 
-After setup, `git pull` automatically fetches the latest scan artifacts into `.sarif/` and the SARIF Viewer shows findings inline in the Problems panel (`Ctrl+Shift+M`). Run manually anytime with `bash scripts/fetch-sarif.sh` — also use this if `git pull` reports "Already up to date" (the hook only fires when commits are merged).
+After setup, `git pull` automatically fetches the latest scan artifacts into `.sarif/` and the SARIF Viewer shows findings inline. Run manually anytime with `bash scripts/fetch-sarif.sh` — also use this if `git pull` reports "Already up to date" (the hook only fires when commits are merged).
 
 > **Note:** `git config core.hooksPath` is a local setting — it must be run once in each working copy (clone or worktree). It does not travel with the repo.
+
+## Triaging findings in VS Code
+
+Once the SARIF Viewer extension is installed and `.sarif/` files are present, open the SARIF panel from the Activity Bar. It has three tabs:
+
+- **Locations** — every individual finding, with file path and line number. Click any row to jump directly to the affected code.
+- **Rules** — findings grouped by rule ID. Useful for understanding how many instances of the same issue exist and deciding whether to fix or suppress the whole rule.
+- **Logs** — the raw SARIF files (gitleaks.sarif, semgrep.sarif, grype.sarif). Toggle individual scanners on/off from here.
+
+### Triage workflow
+
+1. **Fetch latest results**: `bash scripts/fetch-sarif.sh` (or wait for the post-merge hook after `git pull`)
+2. **Open the Locations tab** — start with `error` severity (red), then `warning` (yellow)
+3. **Click a finding** — VS Code jumps to the exact file and line
+4. **Fix, suppress, or document:**
+   - *Fix it* — update the code or dependency and push; the next scan will clear it
+   - *Suppress a known false positive or dev-only issue* — add an ignore rule to `.grype.yaml` (for CVEs) or a `# nosemgrep: rule-id` comment inline (for semgrep)
+   - *Defer it* — leave it in audit mode and track it in your issue tracker
+5. **Re-fetch** after the next CI run to confirm the finding is gone
+
+### Ignoring a CVE in Grype
+
+Create `.grype.yaml` in your repo root:
+
+```yaml
+ignore:
+  - vulnerability: GHSA-6w46-j5rx-g56g
+    package:
+      name: pytest
+    reason: "dev-only test dependency, never installed in production"
+```
+
+Grype picks this up automatically — no workflow changes needed.
+
+### Ignoring a Semgrep rule inline
+
+```python
+result = db.execute(query)  # nosemgrep: python.lang.security.audit.formatted-sql-query
+```
+
+Or suppress an entire rule for the repo by adding it to your `semgrep.yml` config.
 
 ## Roadmap
 
