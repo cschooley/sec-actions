@@ -19,10 +19,10 @@ Accepts a directory, container image, or a Syft-generated SBOM as input. Pair wi
 ### Scan a directory (standalone)
 
 ```yaml
-- uses: cschooley/sec-actions/actions/grype@main
+- uses: cschooley/sec-actions/actions/grype@2e7265858d4328b9eac6001532e7011e8be518bf # main, 2026-07-06
   with:
     fail_on_findings: 'false'
-- uses: actions/upload-artifact@v4
+- uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
   if: always()
   with:
     name: grype-sarif
@@ -32,15 +32,15 @@ Accepts a directory, container image, or a Syft-generated SBOM as input. Pair wi
 ### Scan a Syft SBOM (recommended for accuracy)
 
 ```yaml
-- uses: cschooley/sec-actions/actions/syft@main
+- uses: cschooley/sec-actions/actions/syft@2e7265858d4328b9eac6001532e7011e8be518bf # main, 2026-07-06
   with:
     output_file: sbom.spdx.json
 
-- uses: cschooley/sec-actions/actions/grype@main
+- uses: cschooley/sec-actions/actions/grype@2e7265858d4328b9eac6001532e7011e8be518bf # main, 2026-07-06
   with:
     target: sbom.spdx.json
     fail_on_findings: 'false'
-- uses: actions/upload-artifact@v4
+- uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
   if: always()
   with:
     name: grype-sarif
