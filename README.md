@@ -24,7 +24,7 @@ Licensed under [AGPL-3.0](LICENSE). Free to use and modify; if you run this as a
 
 ## Quick start
 
-Scan a repo on every push:
+Scan a repo on every push. Actions below are pinned to commit SHAs (with the tag/branch noted in a comment) rather than `@v4` or `@main` — mutable refs can be repointed, so pinning is the safer default for anything running in CI. Update the pins with [Dependabot](https://docs.github.com/code-security/dependabot/dependabot-version-updates) or by hand once a tagged release of this repo exists.
 
 ```yaml
 name: Security
@@ -35,11 +35,11 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cschooley/sec-actions/actions/gitleaks@main
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: cschooley/sec-actions/actions/gitleaks@2e7265858d4328b9eac6001532e7011e8be518bf # main, 2026-07-06
         with:
           fail_on_findings: 'true'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: gitleaks-sarif
@@ -48,12 +48,12 @@ jobs:
   sast:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cschooley/sec-actions/actions/semgrep@main
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: cschooley/sec-actions/actions/semgrep@2e7265858d4328b9eac6001532e7011e8be518bf # main, 2026-07-06
         with:
           config: 'auto'
           fail_on_findings: 'false'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: semgrep-sarif
@@ -62,13 +62,13 @@ jobs:
   sbom:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cschooley/sec-actions/actions/syft@main
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: cschooley/sec-actions/actions/syft@2e7265858d4328b9eac6001532e7011e8be518bf # main, 2026-07-06
         with:
           check_licenses: 'true'
           deny_licenses: 'GPL-2.0-only,GPL-3.0-only,AGPL-3.0-only'
           fail_on_findings: 'false'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: sbom
@@ -78,16 +78,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: sbom
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: sbom
-      - uses: cschooley/sec-actions/actions/grype@main
+      - uses: cschooley/sec-actions/actions/grype@2e7265858d4328b9eac6001532e7011e8be518bf # main, 2026-07-06
         with:
           target: sbom.spdx.json
           severity_cutoff: 'medium'
           fail_on_findings: 'false'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: grype-sarif
