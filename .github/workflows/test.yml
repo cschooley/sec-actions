@@ -93,6 +93,25 @@ jobs:
           name: grype-sarif
           path: grype.sarif
 
+  test-osv-scanner:
+    name: Test osv-scanner action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run osv-scanner
+        uses: ./actions/osv-scanner
+        with:
+          target: tests/fixtures/osv-scanner
+          output_file: osv-results.json
+          fail_on_findings: 'false'
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: osv-results
+          path: osv-results.json
+
   test-license-check:
     name: Test license_check.py unit tests
     runs-on: ubuntu-latest

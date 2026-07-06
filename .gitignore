@@ -5,3 +5,4 @@ __pycache__/
 *.sarif
 *.spdx.json
 *.cyclonedx.json
+osv-results.json

@@ -14,6 +14,7 @@ Licensed under [AGPL-3.0](LICENSE). Free to use and modify; if you run this as a
 | [semgrep](actions/semgrep/) | [Semgrep OSS](https://semgrep.dev) | SAST / code analysis |
 | [syft](actions/syft/) | [Syft](https://github.com/anchore/syft) | SBOM generation + license compliance |
 | [grype](actions/grype/) | [Grype](https://github.com/anchore/grype) | CVE / vulnerability scanning |
+| [osv-scanner](actions/osv-scanner/) | [OSV-Scanner](https://github.com/google/osv-scanner) | Dependency / SCA scanning |
 
 ## Design
 
@@ -164,6 +165,5 @@ Or suppress an entire rule for the repo by adding it to your `semgrep.yml` confi
 
 ## Roadmap
 
-- OSV-Scanner action (dependency/SCA scanning)
 - TruffleHog action (alternative secret scanner with historical commit scanning)
 - DefectDojo upload helper
