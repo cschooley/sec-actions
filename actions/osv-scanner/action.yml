@@ -1,0 +1,100 @@
+name: 'OSV-Scanner Dependency Scanner'
+description: 'Scan dependencies for known vulnerabilities using OSV-Scanner and the OSV database'
+author: 'cschooley'
+
+inputs:
+  target:
+    description: 'Directory, lockfile, or SBOM file to scan'
+    required: false
+    default: '.'
+  output_file:
+    description: 'Path to write scan output'
+    required: false
+    default: 'osv-results.json'
+  format:
+    description: 'Output format: json, sarif, table, markdown, cyclonedx-1-5, spdx-2-3, etc.'
+    required: false
+    default: 'json'
+  config:
+    description: 'Path to an osv-scanner.toml config file'
+    required: false
+    default: ''
+  fail_on_findings:
+    description: 'Exit 1 if vulnerabilities are found. Set to false for audit mode.'
+    required: false
+    default: 'true'
+  version:
+    description: 'OSV-Scanner version to install (e.g. 2.4.0). Defaults to latest.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install OSV-Scanner
+      shell: bash
+      env:
+        OSV_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if command -v osv-scanner &>/dev/null; then
+          echo "osv-scanner already installed: $(osv-scanner --version | head -1)"
+          exit 0
+        fi
+
+        # Use gh CLI (authenticated, no rate-limit risk) to resolve latest version
+        if [ -z "$OSV_VERSION" ]; then
+          OSV_VERSION=$(gh release view --repo google/osv-scanner --json tagName --jq '.tagName' | sed 's/^v//')
+        fi
+
+        if [ -z "$OSV_VERSION" ]; then
+          echo "::error::Could not determine OSV-Scanner version. Set the 'version' input explicitly." >&2
+          exit 1
+        fi
+
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)  ARCH_SLUG="amd64" ;;
+          aarch64) ARCH_SLUG="arm64" ;;
+          *)        echo "ERROR: unsupported arch $ARCH" >&2; exit 1 ;;
+        esac
+
+        curl -sSfL -o /usr/local/bin/osv-scanner \
+          "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/osv-scanner_linux_${ARCH_SLUG}"
+        chmod +x /usr/local/bin/osv-scanner
+        echo "Installed osv-scanner $(osv-scanner --version | head -1)"
+
+    - name: Run OSV-Scanner
+      shell: bash
+      env:
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_OUTPUT: ${{ inputs.output_file }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_FAIL: ${{ inputs.fail_on_findings }}
+      run: |
+        cmd=(osv-scanner scan source
+          --recursive
+          --format "$INPUT_FORMAT"
+          --output-file "$INPUT_OUTPUT"
+        )
+        [ -n "$INPUT_CONFIG" ] && cmd+=(--config "$INPUT_CONFIG")
+        cmd+=("$INPUT_TARGET")
+
+        # OSV-Scanner exit codes: 0 = clean, 1 = vulnerabilities found, anything else = error
+        set +e
+        "${cmd[@]}"
+        EXIT=$?
+        set -e
+
+        if [ $EXIT -eq 0 ]; then
+          echo "No vulnerabilities found."
+        elif [ $EXIT -eq 1 ]; then
+          echo "::warning::OSV-Scanner found vulnerable dependencies. Review $INPUT_OUTPUT."
+          if [ "$INPUT_FAIL" = "true" ]; then
+            exit 1
+          fi
+        else
+          echo "::error::OSV-Scanner exited with unexpected code $EXIT." >&2
+          exit $EXIT
+        fi

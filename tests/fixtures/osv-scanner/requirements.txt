@@ -1,0 +1,3 @@
+# Intentionally pinned to a version with known CVEs — fixture for the
+# osv-scanner action's CI test, never installed.
+django==1.11.1
