@@ -55,7 +55,7 @@ runs:
           exit 1
         fi
 
-        curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/install.sh \
+        curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
           | sh -s -- -b /usr/local/bin "v${TRIVY_VERSION}"
         echo "Installed trivy $(trivy --version | head -1)"
 
