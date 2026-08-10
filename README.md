@@ -25,12 +25,17 @@ Licensed under [AGPL-3.0](LICENSE). Free to use and modify; if you run this as a
 
 ## Quick start
 
-Scan a repo on every push. Actions below are pinned to commit SHAs (with the tag/branch noted in a comment) rather than `@v4` or `@main` — mutable refs can be repointed, so pinning is the safer default for anything running in CI. Update the pins with [Dependabot](https://docs.github.com/code-security/dependabot/dependabot-version-updates) or by hand once a tagged release of this repo exists.
+Scan a repo on every push, plus a weekly cron. The cron matters as much as the push trigger: a repo that nobody has touched in months can still gain new critical findings as advisories get published against its pinned dependency versions, and `push`/`pull_request` alone will never re-run the scan to catch that. Actions below are pinned to commit SHAs (with the tag/branch noted in a comment) rather than `@v4` or `@main` — mutable refs can be repointed, so pinning is the safer default for anything running in CI. Update the pins with [Dependabot](https://docs.github.com/code-security/dependabot/dependabot-version-updates) or by hand once a tagged release of this repo exists.
 
 ```yaml
 name: Security
 
-on: [push, pull_request]
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"  # weekly, catches new CVEs against code nobody has touched
 
 jobs:
   secrets:
