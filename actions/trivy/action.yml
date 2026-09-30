@@ -1,0 +1,98 @@
+name: 'Trivy Container Image Scanner'
+description: 'Scan a container image for vulnerabilities using Trivy and emit a SARIF report'
+author: 'cschooley'
+
+inputs:
+  image:
+    description: 'Container image to scan (e.g. myapp:latest). Must already be available to the runner (pulled or built earlier in the job).'
+    required: true
+  severity:
+    description: 'Comma-separated minimum severities to report: UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL'
+    required: false
+    default: 'HIGH,CRITICAL'
+  output_file:
+    description: 'Path to write SARIF output'
+    required: false
+    default: 'trivy.sarif'
+  ignore_unfixed:
+    description: 'Exclude vulnerabilities with no available fix'
+    required: false
+    default: 'false'
+  trivy_config:
+    description: 'Path to a trivy.yaml config file'
+    required: false
+    default: ''
+  fail_on_findings:
+    description: 'Exit 1 if vulnerabilities are found. Set to false for audit mode.'
+    required: false
+    default: 'true'
+  version:
+    description: 'Trivy version to install (e.g. 0.56.2). Defaults to latest.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Trivy
+      shell: bash
+      env:
+        TRIVY_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if command -v trivy &>/dev/null; then
+          echo "trivy already installed: $(trivy --version | head -1)"
+          exit 0
+        fi
+
+        # Use gh CLI (authenticated, no rate-limit risk) to resolve latest version
+        if [ -z "$TRIVY_VERSION" ]; then
+          TRIVY_VERSION=$(gh release view --repo aquasecurity/trivy --json tagName --jq '.tagName' | sed 's/^v//')
+        fi
+
+        if [ -z "$TRIVY_VERSION" ]; then
+          echo "::error::Could not determine Trivy version. Set the 'version' input explicitly." >&2
+          exit 1
+        fi
+
+        curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+          | sh -s -- -b /usr/local/bin "v${TRIVY_VERSION}"
+        echo "Installed trivy $(trivy --version | head -1)"
+
+    - name: Run Trivy scan
+      shell: bash
+      env:
+        INPUT_IMAGE: ${{ inputs.image }}
+        INPUT_OUTPUT: ${{ inputs.output_file }}
+        INPUT_SEVERITY: ${{ inputs.severity }}
+        INPUT_IGNORE_UNFIXED: ${{ inputs.ignore_unfixed }}
+        INPUT_CONFIG: ${{ inputs.trivy_config }}
+        INPUT_FAIL: ${{ inputs.fail_on_findings }}
+      run: |
+        cmd=(trivy image
+          --format sarif
+          --output "$INPUT_OUTPUT"
+          --severity "$INPUT_SEVERITY"
+          --exit-code 1
+        )
+        [ "$INPUT_IGNORE_UNFIXED" = "true" ] && cmd+=(--ignore-unfixed)
+        [ -n "$INPUT_CONFIG" ] && cmd+=(--config "$INPUT_CONFIG")
+        cmd+=("$INPUT_IMAGE")
+
+        # Trivy exit codes: 0 = clean, 1 (via --exit-code) = findings, anything else = error
+        set +e
+        "${cmd[@]}"
+        EXIT=$?
+        set -e
+
+        if [ $EXIT -eq 0 ]; then
+          echo "No vulnerabilities found at or above $INPUT_SEVERITY severity."
+        elif [ $EXIT -eq 1 ]; then
+          echo "::warning::Trivy found vulnerabilities at or above $INPUT_SEVERITY severity. Review $INPUT_OUTPUT."
+          if [ "$INPUT_FAIL" = "true" ]; then
+            exit 1
+          fi
+        else
+          echo "::error::Trivy exited with unexpected code $EXIT." >&2
+          exit $EXIT
+        fi
