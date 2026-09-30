@@ -15,22 +15,28 @@ Licensed under [AGPL-3.0](LICENSE). Free to use and modify; if you run this as a
 | [syft](actions/syft/) | [Syft](https://github.com/anchore/syft) | SBOM generation + license compliance |
 | [grype](actions/grype/) | [Grype](https://github.com/anchore/grype) | CVE / vulnerability scanning |
 | [osv-scanner](actions/osv-scanner/) | [OSV-Scanner](https://github.com/google/osv-scanner) | Dependency / SCA scanning |
+| [trivy](actions/trivy/) | [Trivy](https://github.com/aquasecurity/trivy) | Container image vulnerability scanning |
 
 ## Design
 
 - **No platform lock-in.** No calls to proprietary security APIs. Results land as workflow artifacts (SARIF, SPDX JSON, CycloneDX JSON) that any SARIF-aware consumer can read.
 - **Composite actions.** No Docker images — tools are installed at runtime from their upstream release channels. Fast, auditable, version-pinnable.
 - **Observe before you gate.** Every action has `fail_on_findings: false` for a non-blocking audit pass while onboarding.
-- **SARIF output.** gitleaks, semgrep, and grype produce SARIF. syft produces SBOM (feed it to grype for accurate CVE results).
+- **SARIF output.** gitleaks, semgrep, grype, and trivy produce SARIF (osv-scanner can too, via its `format` input). syft produces SBOM (feed it to grype for accurate CVE results).
 
 ## Quick start
 
-Scan a repo on every push. Actions below are pinned to commit SHAs (with the tag/branch noted in a comment) rather than `@v4` or `@main` — mutable refs can be repointed, so pinning is the safer default for anything running in CI. Update the pins with [Dependabot](https://docs.github.com/code-security/dependabot/dependabot-version-updates) or by hand once a tagged release of this repo exists.
+Scan a repo on every push, plus a weekly cron. The cron matters as much as the push trigger: a repo that nobody has touched in months can still gain new critical findings as advisories get published against its pinned dependency versions, and `push`/`pull_request` alone will never re-run the scan to catch that. Actions below are pinned to commit SHAs (with the tag/branch noted in a comment) rather than `@v4` or `@main` — mutable refs can be repointed, so pinning is the safer default for anything running in CI. Update the pins with [Dependabot](https://docs.github.com/code-security/dependabot/dependabot-version-updates) or by hand once a tagged release of this repo exists.
 
 ```yaml
 name: Security
 
-on: [push, pull_request]
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"  # weekly, catches new CVEs against code nobody has touched
 
 jobs:
   secrets:
